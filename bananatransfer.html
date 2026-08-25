@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
         /* --- VARIABILI & RESET --- */
@@ -65,7 +67,14 @@
             font-weight: 800;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+        }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: cover;
         }
 
         .logo span {
@@ -83,6 +92,9 @@
             font-size: 0.95rem;
             font-weight: 500;
             transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .nav-links a:hover {
@@ -93,6 +105,16 @@
         .hero {
             padding: 90px 0 60px;
             text-align: center;
+        }
+
+        .hero-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            object-fit: cover;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--border-color);
         }
 
         .badge {
@@ -199,6 +221,15 @@
             font-family: monospace;
             font-size: 0.9rem;
             text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .mockup-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .mockup-content .highlight {
@@ -238,7 +269,10 @@
         }
 
         .card-icon {
-            font-size: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-yellow);
             margin-bottom: 16px;
         }
 
@@ -307,6 +341,12 @@
             font-size: 0.9rem;
         }
 
+        footer .footer-logo-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         /* --- RESPONSIVE --- */
         @media (max-width: 768px) {
             .hero h1 {
@@ -331,13 +371,16 @@
         <div class="container">
             <nav>
                 <div class="logo">
-					
-                    🍌 Banana<span>Transfer</span>
+                    <img src="BananaTransfer_icon.png" alt="BananaTransfer Logo"><span>BananaTransfer</span>
                 </div>
                 <div class="nav-links">
-                    <a href="#features">Caratteristiche</a>
-                    <a href="#guide">Guida</a>
-                    <a href="https://github.com" target="_blank">GitHub</a>
+                    <a href="#features"><i data-lucide="layers" width="16" height="16"></i> Caratteristiche</a>
+                    <a href="#guide"><i data-lucide="book-open" width="16" height="16"></i> Guida</a>
+                    <a href="https://github.com/riccardo-raineri/BananaTransfer" target="_blank">
+                        <!-- Logo ufficiale GitHub in SVG -->
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle;">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                        </svg>GitHub</a>
                 </div>
             </nav>
         </div>
@@ -345,20 +388,26 @@
 
     <!-- HERO SECTION -->
     <section class="hero">
-        <div class="container">
-		
-            <div class="badge">v1.0.0 — Open Source per Windows</div>
+		<img src="BananaTransfer_icon.png" alt="BananaTransfer Logo" class="hero-logo">
+        <div class="container">            
+            <div class="badge">v1.0 — Open Source per macOS e Windows</div>
             <h1>Trasferisci foto e video da iPhone a <span>Mac e PC</span>.</h1>
-            <p>BananaTransfer è l'applicazione desktop leggera e veloce per importare ed organizzare i tuoi file multimediali senza passare da iCloud o iTunes.</p>
+            <p>BananaTransfer è un'applicazione leggera e veloce per importare ed organizzare i tuoi file multimediali.</p>
             
             <div class="hero-cta">
-                <a href="https://github.com/riccardo-raineri/utility/tree/main/app/BananaTransfer/BananaTransfer.app/Contents" class="btn btn-primary">
-                    💾 Scarica per macOS (.dmg)
-                </a>
-                <a href="https://github.com" target="_blank" class="btn btn-secondary">
-                    ⭐ Codice Sorgente
-                </a>
+                <a href="https://github.com/riccardo-raineri/BananaTransfer/releases" class="btn btn-primary">
+                    <svg fill="#000000" width="32px" height="32px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.09997 22C7.78997 22.05 6.79997 20.68 5.95997 19.47C4.24997 17 2.93997 12.45 4.69997 9.39C5.56997 7.87 7.12997 6.91 8.81997 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"></path> </g></svg> Scarica per macOS (.dmg)</a>
+				
+				<a href="#" class="btn btn-primary">
+                    <svg fill="#000000" width="32px" height="32px" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M1863.53 1016.437c31.171 0 56.47 25.299 56.47 56.47v790.589c0 16.376-7.115 31.849-19.313 42.465-10.39 9.149-23.605 14.005-37.158 14.005-2.484 0-5.082-.113-7.567-.452l-903.53-123.331c-28.008-3.84-48.903-27.784-48.903-56.02v-667.256c0-31.171 25.3-56.47 56.471-56.47Zm-1129.412 0c31.171 0 56.47 25.299 56.47 56.47v634.504c0 16.376-7.115 31.85-19.426 42.579-10.39 9.035-23.491 13.891-37.044 13.891-2.485 0-5.196-.113-7.68-.564L48.79 1669.35C20.78 1665.51 0 1641.68 0 1613.444v-540.537c0-31.171 25.299-56.47 56.47-56.47Zm-7.726-859.855c16.151-2.372 32.415 2.597 44.725 13.327 12.424 10.73 19.426 26.315 19.426 42.579V846.99c0 31.285-25.186 56.47-56.47 56.47H56.424c-31.171 0-56.47-25.185-56.47-56.47V306.455c0-28.123 20.781-52.066 48.79-55.906ZM1855.974.474c16.15-2.033 32.414 2.71 44.724 13.44 12.198 10.73 19.313 26.203 19.313 42.466v790.588c0 31.285-25.299 56.471-56.47 56.471H960.01c-31.171 0-56.47-25.186-56.47-56.47V179.711c0-28.235 20.78-52.066 48.903-55.906Z" fill-rule="evenodd"></path> </g></svg> (coming soon)</a>                
             </div>
+			<br>
+			<div class="hero-cta">
+				<a href="https://github.com/riccardo-raineri/BananaTransfer" target="_blank" class="btn btn-secondary">
+                    <i data-lucide="star" width="20" height="20"></i> Codice Sorgente
+                </a>
+			</div>
+		
 
             <!-- APP MOCKUP PREVIEW -->
             <div class="app-preview">
@@ -368,10 +417,10 @@
                     <div class="dot" style="background:#27c93f"></div>
                 </div>
                 <div class="mockup-content">
-                    <p><span class="highlight">[14:42:04]</span> 🔍 Avvio scansione dispositivi collegati...</p>
-                    <p><span class="highlight">[14:42:04]</span> 📱 Dispositivo rilevato: Apple iPhone (MTP/WPD)</p>
-                    <p><span class="highlight">[14:42:05]</span> ✅ Scansione completata. Trovati 1.240 elementi multimediali (Foto, Video, RAW).</p>
-                    <p><span class="highlight">[14:42:10]</span> 🚀 Trasferimento avviato verso C:\Foto\BananaTransfer...</p>
+                    <div class="mockup-line"><span class="highlight">[14:42:04]</span> <i data-lucide="search" width="14" height="14"></i> Avvio scansione dispositivi collegati...</div>
+                    <div class="mockup-line"><span class="highlight">[14:42:04]</span> <i data-lucide="smartphone" width="14" height="14"></i> Dispositivo rilevato: Apple iPhone (MTP/WPD)</div>
+                    <div class="mockup-line"><span class="highlight">[14:42:05]</span> <i data-lucide="check-circle" width="14" height="14"></i> Scansione completata. Trovati 1.240 elementi multimediali (Foto, Video, RAW).</div>
+                    <div class="mockup-line"><span class="highlight">[14:42:10]</span> <i data-lucide="rocket" width="14" height="14"></i> Trasferimento avviato verso C:\Foto\BananaTransfer...</div>
                 </div>
             </div>
         </div>
@@ -384,27 +433,35 @@
             
             <div class="grid">
                 <div class="card">
-                    <div class="card-icon">⚡</div>
+                    <div class="card-icon">
+                        <i data-lucide="zap" width="32" height="32"></i>
+                    </div>
                     <h3>Supporto MTP/WPD Nativo</h3>
                     <p>Legge direttamente i dispositivi Apple collegati via cavo USB senza bisogno di driver complessi o configurazioni noiose.</p>
                 </div>
 
                 <div class="card">
-                    <div class="card-icon">📂</div>
+                    <div class="card-icon">
+                        <i data-lucide="folder-git-2" width="32" height="32"></i>
+                    </div>
                     <h3>Organizzazione Automatica</h3>
                     <p>Ordina e suddivide automaticamente le foto ed i video in sottocartelle basate sulla data di scatto (AAAA-MM-DD).</p>
                 </div>
 
                 <div class="card">
-                    <div class="card-icon">🎯</div>
-                    <h3>Filtri Intelligenti</h3>
-                    <p>Separa facilmente Foto, Video e scatti in formato RAW (.HEIC, .MP4, .MOV, .CR2, .DNG) prima di avviare il trasferimento.</p>
+                    <div class="card-icon">
+                        <i data-lucide="filter" width="32" height="32"></i>
+                    </div>
+                    <h3>Filtri</h3>
+                    <p>Separa facilmente Foto, Video e scatti in formato RAW prima di avviare il trasferimento.</p>
                 </div>
 
                 <div class="card">
-                    <div class="card-icon">🛡️</div>
+                    <div class="card-icon">
+                        <i data-lucide="shield-check" width="32" height="32"></i>
+                    </div>
                     <h3>Sicuro e Privato</h3>
-                    <p>Funziona al 100% offline. I tuoi dati non passano mai da server esterni o servizi cloud. Tutto rimane sul tuo PC.</p>
+                    <p>Funziona al 100% offline. I tuoi dati non passano mai da server esterni o servizi cloud. Tutto rimane sul tuo dispositivo.</p>
                 </div>
             </div>
         </div>
@@ -419,7 +476,8 @@
                     <div class="step-number">1</div>
                     <div class="step-text">
                         <h4>Collega l'iPhone al PC</h4>
-                        <p>Usa il cavo USB. Sblocca l'iPhone e, se richiesto, premi "Autorizza questo computer".</p>
+                        <p>Sblocca l'iPhone, collegalo al computer e, se richiesto, premi "Autorizza questo computer".<br>
+						Su Windows assicurati di aver installato <a href="https://apps.microsoft.com/detail/9np83lwlpz9k?hl=it-IT&gl=IT">Dispositivi Apple</a> dal Microsoft Store.</p>
                     </div>
                 </div>
 
@@ -435,7 +493,20 @@
                     <div class="step-number">3</div>
                     <div class="step-text">
                         <h4>Scegli e Trasferisci</h4>
-                        <p>Seleziona i file che vuoi salvare, la cartella di destinazione su Windows e clicca "Avvia Trasferimento".</p>
+                        <p>Seleziona i file che vuoi salvare, la cartella di destinazione e avvia il trasferimento.</p>
+                    </div>
+                </div>
+				
+				<div class="step">
+                    <div class="step-text">
+                        <h4>Altre funzionalità</h4>
+                        <p>
+							<li>Gestione automatica dei duplicati: scegli se Rinomicare, Saltare o Sovrascrivere i file</li>
+							<li>Scegli se salvare i file nelle cartelle divise per AAAA:MM:GG oppure AAAA:MM</li>
+							<li>Possibilità di convertire le immagini .HEIC in .JPEG</li>
+							<li>Converti facilmente grossi video in .mp4 (H264)</li>
+							<li>Decidi se eliminare i file dal dispositivo dopo il trasferimento</li>
+						</p>
                     </div>
                 </div>
             </div>
@@ -445,10 +516,16 @@
     <!-- FOOTER -->
     <footer id="download">
         <div class="container">
-            <p>🍌 <strong>BananaTransfer</strong> — Rilasciato sotto licenza MIT. Sviluppato in C# / WPF.</p>
-            <p style="margin-top: 8px;">Realizzato per semplificare il backup locale del tuo iPhone.</p>
+            <p>
+                <span class="footer-logo-text"><i data-lucide="banana" style="color: var(--accent-yellow);" width="24" height="24"></i> <strong>BananaTransfer</strong></span> — Rilasciato sotto licenza MIT. Sviluppato in Swift / C# / WPF.
+            </p>
+            <p style="margin-top: 8px;">Realizzato da Riccardo Raineri <i data-lucide="copyright" width="16" height="16"></i></p>
         </div>
     </footer>
 
+    <!-- Inizializzazione icone Lucide -->
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>
