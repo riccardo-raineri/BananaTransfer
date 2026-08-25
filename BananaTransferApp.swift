@@ -20,5 +20,6 @@ struct BananaTransferApp: App {
                 .frame(minWidth: 900, minHeight: 600)
         }
         .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
     }
 }

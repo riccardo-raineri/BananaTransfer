@@ -11,18 +11,31 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
+            
+            // MARK: - Header
+            headerBar
+            
+            Divider().opacity(0.5)
 
-            if manager.mediaItems.isEmpty {
-                emptyState
-            } else {
-                PhotoGridView()
+            // MARK: - Main Area
+            ZStack {
+                Color(NSColor.windowBackgroundColor).ignoresSafeArea()
+                
+                if manager.mediaItems.isEmpty {
+                    elegantEmptyState
+                } else {
+                    PhotoGridView()
+                        .padding(.top, 10)
+                }
             }
 
-            Divider()
-            bottomBar
+            Divider().opacity(0.5)
+            
+            // MARK: - Bottom Control Panel
+            bottomControlPanel
         }
+        .frame(minWidth: 700, idealWidth: 800, minHeight: 600, idealHeight: 700)
+        // MARK: - Alerts (Invariati dal tuo codice)
         .alert("Errore", isPresented: Binding(
             get: { manager.lastError != nil },
             set: { if !$0 { manager.lastError = nil } }
@@ -41,153 +54,235 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Sotto-viste
+    // MARK: - Sotto-viste Ridisegnate
 
-    private var toolbar: some View {
+    private var headerBar: some View {
         HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
+            // Titolo e Status
+            VStack(alignment: .leading, spacing: 4) {
                 Text(manager.deviceName.isEmpty ? "Nessun iPhone collegato" : manager.deviceName)
-                    .font(.headline)
-                Text(manager.statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(manager.deviceName.isEmpty ? .secondary : .primary)
+                
+                Text(manager.statusMessage.isEmpty ? "In attesa di connessione..." : manager.statusMessage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(manager.deviceName.isEmpty ? .tertiary : .secondary)
             }
 
             Spacer()
 
-            Picker("", selection: $manager.kindFilter) {
-                ForEach(MediaKindFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+            // Filtri e Selezione (Visibili solo se ci sono elementi)
+            if !manager.mediaItems.isEmpty {
+                Picker("", selection: $manager.kindFilter) {
+                    ForEach(MediaKindFilter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
                 }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
-            .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+                .labelsHidden()
 
-            Button {
-                manager.toggleSelectAll(true)
-            } label: {
-                Label("Seleziona tutto", systemImage: "checkmark.circle")
-            }
-            .disabled(manager.mediaItems.isEmpty)
+                Divider().frame(height: 20).padding(.horizontal, 4)
 
-            Button {
-                manager.toggleSelectAll(false)
-            } label: {
-                Label("Deseleziona tutto", systemImage: "circle")
+                HStack(spacing: 8) {
+                    Button {
+                        manager.toggleSelectAll(true)
+                    } label: {
+                        Label("Seleziona tutto", systemImage: "checkmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(Capsule())
+
+                    Button {
+                        manager.toggleSelectAll(false)
+                    } label: {
+                        Label("Deseleziona tutto", systemImage: "circle")
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+                .font(.system(size: 12, weight: .medium))
             }
-            .disabled(manager.mediaItems.isEmpty)
         }
-        .padding()
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "iphone.gen3")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text(manager.statusMessage)
-                .foregroundStyle(.secondary)
+    private var elegantEmptyState: some View {
+        VStack(spacing: 24) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.15))
+                    .frame(width: 140, height: 140)
+                
+                Image(systemName: manager.deviceName.isEmpty ? "iphone.slash" : "iphone.and.arrow.forward")
+                    .font(.system(size: 56, weight: .light))
+                    .foregroundColor(manager.deviceName.isEmpty ? .secondary : .accentColor)
+            }
+            
+            VStack(spacing: 8) {
+                Text(manager.deviceName.isEmpty ? "Collega il tuo iPhone" : "iPhone Pronto")
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                Text(manager.deviceName.isEmpty ? "Usa un cavo USB per connettere il dispositivo" : "Il dispositivo è connesso. Sto scansionando gli elementi multimediali...")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var bottomBar: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 16) {
-                Toggle("Organizza automaticamente per data", isOn: $manager.organizeByDate)
+    private var bottomControlPanel: some View {
+        VStack(spacing: 20) {
+            // Pannello Impostazioni (compatto e raggruppato)
+            if !manager.mediaItems.isEmpty {
+                VStack(spacing: 12) {
+                    // Riga 1: Organizzazione e Destinazione
+                    HStack {
+                        Text("Scegli cartella di destinazione:")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        Button {
+                            manager.chooseDestinationFolder(window: NSApp.keyWindow)
+                        } label: {
+                            HStack {
+                                Image(systemName: "folder.fill").foregroundColor(.accentColor)
+                                Text(manager.destinationFolder?.lastPathComponent ?? "Scegli...")
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.windowBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                        }
+                        .buttonStyle(.plain)
 
-                Picker("", selection: $manager.dateFolderStyle) {
-                    ForEach(DateFolderStyle.allCases) { style in
-                        Text(style.label).tag(style)
+                        Spacer()
+
+                        Toggle("Crea cartella per Data:", isOn: $manager.organizeByDate)
+                        if manager.organizeByDate {
+                            Picker("", selection: $manager.dateFolderStyle) {
+                                ForEach(DateFolderStyle.allCases) { style in
+                                    Text(style.label).tag(style)
+                                }
+                            }
+                            .frame(width: 130)
+                            .labelsHidden()
+                        }
+                        
+                        Divider().frame(height: 16).padding(.horizontal, 4)
+                        
+                        Text("Duplicati:")
+                        Picker("", selection: $manager.duplicatePolicy) {
+                            ForEach(DuplicatePolicy.allCases) { policy in
+                                Text(policy.rawValue).tag(policy)
+                            }
+                        }
+                        .frame(width: 120)
+                        .labelsHidden()
                     }
-                }
-                .frame(width: 240)
-                .disabled(!manager.organizeByDate)
-                .labelsHidden()
 
-                Text("Duplicati:")
-                    .font(.callout)
-                Picker("", selection: $manager.duplicatePolicy) {
-                    ForEach(DuplicatePolicy.allCases) { policy in
-                        Text(policy.rawValue).tag(policy)
+                    // Riga 2: Conversioni ed Eliminazione
+                    HStack(spacing: 24) {
+                        Toggle("Converti da HEIC in JPEG", isOn: $manager.convertHEICtoJPEG)
+                        Toggle("Converti video in H.264 (1920x1080)", isOn: $manager.convertVideoToH264)
+                        Spacer()
+                        Toggle("Elimina dall'iPhone dopo la copia", isOn: $manager.deleteFromDeviceAfterCopy)
+                            .tint(.red) // Dà un accento rosso per le azioni distruttive
                     }
+                    .foregroundColor(.secondary)
                 }
-                .frame(width: 140)
-                .labelsHidden()
-
-                Spacer()
-
-                Button {
-                    manager.chooseDestinationFolder(window: NSApp.keyWindow)
-                } label: {
-                    Label(
-                        manager.destinationFolder?.lastPathComponent ?? "Scegli cartella…",
-                        systemImage: "folder"
-                    )
-                }
+                .font(.system(size: 12))
+                .toggleStyle(.checkbox)
+                .padding(16)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            HStack(spacing: 16) {
-                Toggle("Converti HEIC in JPEG", isOn: $manager.convertHEICtoJPEG)
-                Toggle("Converti video in H.264", isOn: $manager.convertVideoToH264)
-                Toggle("Elimina dall'iPhone dopo la copia", isOn: $manager.deleteFromDeviceAfterCopy)
-                Spacer()
-            }
-            .font(.callout)
-            .toggleStyle(.checkbox)
-
-            progressRow
+            // Barra di Progresso e Pulsante Principale
+            progressAndActionBar
         }
-        .padding()
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+        .padding(.bottom, 24)
+        .background(Color(NSColor.windowBackgroundColor).opacity(0.8))
     }
 
     @ViewBuilder
-    private var progressRow: some View {
+    private var progressAndActionBar: some View {
         HStack {
+            // Sezione Sinistra: Progresso o Azioni di recupero
             if manager.isCopying {
-                ProgressView(value: Double(manager.copiedSoFar), total: Double(max(manager.totalToCopy, 1)))
-                    .frame(width: 200)
-                Text("\(manager.copiedSoFar)/\(manager.totalToCopy)")
-                    .font(.caption)
-                    .monospacedDigit()
-
-                if manager.isPaused {
-                    Button {
-                        manager.resumeCopy()
-                    } label: {
-                        Label("Riprendi", systemImage: "play.fill")
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: Double(manager.copiedSoFar), total: Double(max(manager.totalToCopy, 1)))
+                        .progressViewStyle(LinearProgressViewStyle(tint: .accentColor))
+                        .frame(maxWidth: 300)
+                    
+                    HStack(spacing: 12) {
+                        Text("Trasferito: \(manager.copiedSoFar) di \(manager.totalToCopy)")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.secondary)
+                        
+                        // Controlli di pausa/ripresa
+                        if manager.isPaused {
+                            Button(action: { manager.resumeCopy() }) {
+                                Image(systemName: "play.circle.fill").foregroundColor(.accentColor)
+                            }.buttonStyle(.plain)
+                        } else {
+                            Button(action: { manager.pauseCopy() }) {
+                                Image(systemName: "pause.circle.fill").foregroundColor(.orange)
+                            }.buttonStyle(.plain)
+                        }
+                        
+                        Button(action: { manager.cancelCopy() }) {
+                            Image(systemName: "xmark.circle.fill").foregroundColor(.red)
+                        }.buttonStyle(.plain)
                     }
-                } else {
-                    Button {
-                        manager.pauseCopy()
-                    } label: {
-                        Label("Pausa", systemImage: "pause.fill")
-                    }
-                }
-
-                Button(role: .destructive) {
-                    manager.cancelCopy()
-                } label: {
-                    Label("Annulla", systemImage: "xmark.circle")
                 }
             } else if manager.hasFailedItems {
                 Button {
                     manager.retryFailed()
                 } label: {
                     Label("Riprova i file falliti", systemImage: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .medium))
                 }
+                .buttonStyle(.plain)
+                .foregroundColor(.red)
+            } else {
+                Spacer()
             }
 
             Spacer()
 
+            // Pulsante Principale
             let selectedCount = manager.mediaItems.filter { $0.isSelected }.count
+            
             Button {
                 manager.startCopySelected()
             } label: {
-                Label("Copia \(selectedCount) elementi", systemImage: "square.and.arrow.down")
-                    .padding(.horizontal, 4)
+                HStack(spacing: 10) {
+                    Image(systemName: manager.isCopying ? "arrow.2.circlepath" : "square.and.arrow.down.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text(manager.isCopying ? "In corso..." : "Trasferisci \(selectedCount) elementi")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.black)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                // Se non c'è una destinazione o non ci sono file, il bottone è grigio. Altrimenti è Giallo Banana.
+                .background(selectedCount > 0 && manager.destinationFolder != nil && !manager.isCopying ? Color.accentColor : Color.gray.opacity(0.2))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: selectedCount > 0 && manager.destinationFolder != nil && !manager.isCopying ? Color.accentColor.opacity(0.4) : Color.clear, radius: 8, x: 0, y: 4)
             }
+            .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
             .disabled(selectedCount == 0 || manager.destinationFolder == nil || manager.isCopying)
         }

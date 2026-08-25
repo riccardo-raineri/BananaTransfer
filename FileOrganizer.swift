@@ -16,8 +16,8 @@ enum DateFolderStyle: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .dayFolder: return "Una cartella per giorno (2026-08-22)"
-        case .yearMonth: return "Anno / Mese (2026/2026-08)"
+        case .dayFolder: return "AAAA-MM-GG"
+        case .yearMonth: return "AAAA/AAAA-MM"
         }
     }
 }
