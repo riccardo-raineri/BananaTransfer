@@ -8,6 +8,8 @@ import SwiftUI
 struct ContentView: View {
 
     @EnvironmentObject var manager: DeviceManager
+    @State private var isLogVisible = false
+    @AppStorage("preferLightTheme") private var preferLightTheme = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,8 +35,12 @@ struct ContentView: View {
             
             // MARK: - Bottom Control Panel
             bottomControlPanel
+
+            // MARK: - Registro operazioni
+            logPanel
         }
         .frame(minWidth: 700, idealWidth: 800, minHeight: 600, idealHeight: 700)
+        .preferredColorScheme(preferLightTheme ? .light : .dark)
         // MARK: - Alerts (Invariati dal tuo codice)
         .alert("Errore", isPresented: Binding(
             get: { manager.lastError != nil },
@@ -64,12 +70,31 @@ struct ContentView: View {
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(manager.deviceName.isEmpty ? .secondary : .primary)
                 
-                Text(manager.statusMessage.isEmpty ? "In attesa di connessione..." : manager.statusMessage)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(manager.deviceName.isEmpty ? .tertiary : .secondary)
+                HStack(spacing: 6) {
+                    if manager.isScanning {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(manager.statusMessage.isEmpty ? "In attesa di connessione..." : manager.statusMessage)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(manager.deviceName.isEmpty ? .tertiary : .secondary)
+                }
             }
 
             Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { preferLightTheme.toggle() }
+            } label: {
+                Image(systemName: preferLightTheme ? "moon.fill" : "sun.max.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(8)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help(preferLightTheme ? "Passa al tema scuro" : "Passa al tema chiaro")
 
             // Filtri e Selezione (Visibili solo se ci sono elementi)
             if !manager.mediaItems.isEmpty {
@@ -128,12 +153,19 @@ struct ContentView: View {
             }
             
             VStack(spacing: 8) {
-                Text(manager.deviceName.isEmpty ? "Collega il tuo iPhone" : "iPhone Pronto")
+                Text(manager.deviceName.isEmpty ? "Collega il tuo iPhone" : manager.deviceName)
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
-                Text(manager.deviceName.isEmpty ? "Usa un cavo USB per connettere il dispositivo" : "Il dispositivo è connesso. Sto scansionando gli elementi multimediali...")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 6) {
+                    if manager.isScanning {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(manager.deviceName.isEmpty ? "Usa un cavo USB per connettere il dispositivo" : "Il dispositivo è connesso. Sto scansionando gli elementi multimediali...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -286,6 +318,59 @@ struct ContentView: View {
             .keyboardShortcut(.defaultAction)
             .disabled(selectedCount == 0 || manager.destinationFolder == nil || manager.isCopying)
         }
+    }
+
+    private var logPanel: some View {
+        VStack(spacing: 0) {
+            Divider().opacity(0.5)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isLogVisible.toggle() }
+            } label: {
+                HStack {
+                    Image(systemName: "terminal")
+                    Text(isLogVisible ? "Nascondi registro" : "Mostra registro")
+                    if manager.isScanning {
+                        ProgressView().controlSize(.mini)
+                    }
+                    Spacer()
+                    Image(systemName: isLogVisible ? "chevron.down" : "chevron.up")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isLogVisible {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(manager.logLines.enumerated()), id: \.offset) { index, line in
+                                Text(line)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(index)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 6)
+                    }
+                    .frame(height: 160)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .onChange(of: manager.logLines.count) { _ in
+                        if let lastIndex = manager.logLines.indices.last {
+                            withAnimation { proxy.scrollTo(lastIndex, anchor: .bottom) }
+                        }
+                    }
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 

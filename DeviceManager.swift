@@ -42,8 +42,10 @@ struct TransferSummary {
     @Published var isDeviceConnected = false
     @Published var deviceName: String = ""
     @Published var isCatalogReady = false
+    @Published var isScanning = false
     @Published var mediaItems: [MediaItem] = []
     @Published var statusMessage: String = "In attesa di un iPhone collegato via cavo…"
+    @Published var logLines: [String] = []
 
     @Published var destinationFolder: URL?
     @Published var dateFolderStyle: DateFolderStyle = .dayFolder
@@ -81,6 +83,13 @@ struct TransferSummary {
     private var cameraDevice: ICCameraDevice?
     private var mediaItemsByObjectID: [ObjectIdentifier: MediaItem] = [:]
     private var requestedThumbnails: Set<ObjectIdentifier> = []
+    /// Propaga i cambiamenti di ogni singolo MediaItem (es. isSelected
+    /// quando l'utente tocca una cella) fino al DeviceManager stesso: senza
+    /// questo, le viste che osservano solo il DeviceManager (come
+    /// ContentView, per il conteggio "Trasferisci N elementi") non si
+    /// accorgono che qualcosa è cambiato in un MediaItem figlio, perché
+    /// SwiftUI non fa risalire automaticamente gli @Published annidati.
+    private var itemSubscriptions: [ObjectIdentifier: AnyCancellable] = [:]
 
     /// Quanti download tenere attivi in parallelo. La verifica di
     /// integrità (dimensione + SHA-256) occupa lo slot fino al termine,
@@ -92,6 +101,9 @@ struct TransferSummary {
     private var itemsCompletedThisSession: [MediaItem] = []
     private var sessionItems: [MediaItem] = []
     private var logger: TransferLogger?
+    private var refreshTimer: Timer?
+    private var refreshAttempts = 0
+    private var lastKnownCount = -1
 
     // MARK: - Ciclo di vita
 
@@ -102,10 +114,107 @@ struct TransferSummary {
         deviceBrowser.delegate = self
         deviceBrowser.browsedDeviceTypeMask = .camera
         deviceBrowser.start()
+        log("App avviata, scansione dispositivi in corso…")
+        isScanning = true
+
+        // Se l'iPhone era già collegato prima di aprire l'app,
+        // ICDeviceBrowser a volte non lo segnala retroattivamente. Proviamo
+        // UNA SOLA volta a riavviare la scansione dopo qualche secondo.
+        // Importante: farlo ripetutamente (come in una versione precedente)
+        // confonde lo stato interno di ICDeviceBrowser e può causare falsi
+        // eventi di collegamento/scollegamento a catena — da cui derivava
+        // il loop di scansione infinito anche a telefono scollegato.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+            guard let self, self.cameraDevice == nil else { return }
+            self.log("Nessun dispositivo dopo l'avvio, riprovo una volta la scansione…")
+            self.deviceBrowser.stop()
+            self.deviceBrowser.start()
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+                guard let self, self.cameraDevice == nil else { return }
+                self.isScanning = false
+                self.statusMessage = "Nessun iPhone rilevato. Controlla il cavo o ricollega il dispositivo."
+                self.log("Nessun dispositivo rilevato dopo il secondo tentativo.")
+            }
+        }
+    }
+
+    /// Rilegge ripetutamente il catalogo di UN dispositivo già rilevato,
+    /// finché il conteggio non si stabilizza (due letture di fila uguali,
+    /// non-zero) — copre il caso in cui il catalogo risulti vuoto o
+    /// incompleto perché letto troppo presto (es. telefono ancora bloccato).
+    /// Non tocca mai ICDeviceBrowser: se il dispositivo sparisce, si ferma
+    /// e basta, senza tentare di "aggiustare" nulla a livello di scansione USB.
+    private func startCatalogPolling() {
+        refreshTimer?.invalidate()
+        refreshAttempts = 0
+        lastKnownCount = -1
+        isScanning = true
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+
+            guard let camera = self.cameraDevice else {
+                timer.invalidate()
+                self.refreshTimer = nil
+                self.isScanning = false
+                return
+            }
+
+            self.refreshAttempts += 1
+            let all = camera.mediaFiles ?? []
+            self.addMediaItems(all) {
+                let currentCount = self.mediaItems.count
+                if currentCount > 0 {
+                    self.isCatalogReady = true
+                    self.statusMessage = "\(currentCount) elementi trovati su \(self.deviceName)."
+                }
+
+                if currentCount > 0 && currentCount == self.lastKnownCount {
+                    self.log("Catalogo stabile a \(currentCount) elementi, fermo il refresh automatico.")
+                    timer.invalidate()
+                    self.refreshTimer = nil
+                    self.isScanning = false
+                } else {
+                    if currentCount != self.lastKnownCount {
+                        self.log("Catalogo: \(currentCount) elementi (tentativo \(self.refreshAttempts))")
+                    }
+                    self.lastKnownCount = currentCount
+                }
+            }
+
+            if self.refreshAttempts >= 60 {
+                self.log("Refresh automatico terminato dopo \(self.refreshAttempts) tentativi.")
+                timer.invalidate()
+                self.refreshTimer = nil
+                self.isScanning = false
+            }
+        }
     }
 
     deinit {
         deviceBrowser.stop()
+        refreshTimer?.invalidate()
+    }
+
+    // MARK: - Registro operazioni in tempo reale
+
+    private static let logTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    func log(_ message: String) {
+        let line = "[\(Self.logTimeFormatter.string(from: Date()))] \(message)"
+        if Thread.isMainThread {
+            logLines.append(line)
+            if logLines.count > 500 { logLines.removeFirst(logLines.count - 500) }
+        } else {
+            DispatchQueue.main.async {
+                self.logLines.append(line)
+                if self.logLines.count > 500 { self.logLines.removeFirst(self.logLines.count - 500) }
+            }
+        }
     }
 
     // MARK: - Azioni richiamate dalla UI
@@ -165,16 +274,19 @@ struct TransferSummary {
         logger = TransferLogger(destinationFolder: root)
 
         _ = root.startAccessingSecurityScopedResource()
+        log("Avvio copia di \(selected.count) elementi verso \(root.lastPathComponent)")
         fillDownloadSlots()
     }
 
     func pauseCopy() {
         isPaused = true
         statusMessage = "In pausa — \(copiedSoFar)/\(totalToCopy) completati."
+        log("Copia in pausa (\(copiedSoFar)/\(totalToCopy))")
     }
 
     func resumeCopy() {
         isPaused = false
+        log("Copia ripresa")
         fillDownloadSlots()
     }
 
@@ -183,6 +295,7 @@ struct TransferSummary {
         // Quelli già in corso non possono essere interrotti a metà con
         // certezza (ImageCaptureCore non lo garantisce): li lasciamo
         // finire e ne registriamo comunque l'esito reale nel log.
+        log("Annullamento richiesto: \(downloadQueue.count) elementi in coda scartati")
         for item in downloadQueue {
             item.transferState = .failed("Annullato dall'utente")
             logger?.log(originalName: item.name, savedName: "-", status: "ANNULLATO", sizeBytes: nil, sha256: nil, detail: "Annullato prima dell'avvio")
@@ -298,6 +411,7 @@ struct TransferSummary {
         let skipped = sessionItems.filter { if case .skipped = $0.transferState { return true }; return false }.count
         let failed = sessionItems.filter { if case .failed = $0.transferState { return true }; return false }.count
         transferSummary = TransferSummary(copied: copied, skipped: skipped, failed: failed)
+        log("Copia completata: \(copied) copiati, \(skipped) saltati, \(failed) falliti")
         sessionItems = []
 
         if deleteFromDeviceAfterCopy, !itemsCompletedThisSession.isEmpty {
@@ -348,9 +462,12 @@ struct TransferSummary {
 
     // MARK: - Gestione item ricevuti dal dispositivo
 
-    private func addMediaItems(_ items: [ICCameraItem]) {
+    private func addMediaItems(_ items: [ICCameraItem], completion: (() -> Void)? = nil) {
         let files = items.compactMap { $0 as? ICCameraFile }
-        guard !files.isEmpty else { return }
+        guard !files.isEmpty else {
+            DispatchQueue.main.async { completion?() }
+            return
+        }
         DispatchQueue.main.async {
             for file in files {
                 let key = ObjectIdentifier(file)
@@ -358,8 +475,12 @@ struct TransferSummary {
                 let item = MediaItem(cameraItem: file)
                 self.mediaItemsByObjectID[key] = item
                 self.mediaItems.append(item)
+                self.itemSubscriptions[key] = item.objectWillChange.sink { [weak self] _ in
+                    self?.objectWillChange.send()
+                }
             }
             self.mediaItems.sort { (($0.captureDate ?? .distantPast)) > (($1.captureDate ?? .distantPast)) }
+            completion?()
         }
     }
 }
@@ -375,6 +496,8 @@ extension DeviceManager: ICDeviceBrowserDelegate {
             camera.delegate = self
             self.deviceName = camera.name ?? "iPhone"
             self.statusMessage = "Connessione a \(self.deviceName)…"
+            self.log("Dispositivo rilevato: \(self.deviceName)")
+            self.startCatalogPolling()
             camera.requestOpenSession()
         }
     }
@@ -382,12 +505,17 @@ extension DeviceManager: ICDeviceBrowserDelegate {
     func deviceBrowser(_ browser: ICDeviceBrowser, didRemove device: ICDevice, moreGoing: Bool) {
         guard device === cameraDevice else { return }
         DispatchQueue.main.async {
+            self.log("Dispositivo scollegato: \(self.deviceName)")
             self.cameraDevice = nil
             self.isDeviceConnected = false
             self.isCatalogReady = false
             self.mediaItems = []
             self.mediaItemsByObjectID = [:]
+            self.itemSubscriptions = [:]
             self.statusMessage = "Dispositivo scollegato. In attesa di un iPhone…"
+            self.refreshTimer?.invalidate()
+            self.refreshTimer = nil
+            self.isScanning = false
         }
     }
 }
@@ -400,10 +528,22 @@ extension DeviceManager: ICDeviceDelegate {
         DispatchQueue.main.async {
             if let error {
                 self.statusMessage = "Errore apertura sessione: \(error.localizedDescription)"
+                self.log("Errore apertura sessione: \(error.localizedDescription)")
                 return
             }
             self.isDeviceConnected = true
             self.statusMessage = "Connesso a \(self.deviceName). Lettura contenuti…"
+            self.log("Sessione aperta con \(self.deviceName)")
+
+            if let camera = self.cameraDevice {
+                let all = camera.mediaFiles ?? []
+                self.addMediaItems(all) {
+                    if !self.mediaItems.isEmpty {
+                        self.isCatalogReady = true
+                        self.statusMessage = "\(self.mediaItems.count) elementi trovati su \(self.deviceName)."
+                    }
+                }
+            }
         }
     }
 
@@ -420,6 +560,11 @@ extension DeviceManager: ICDeviceDelegate {
         DispatchQueue.main.async {
             self.isDeviceConnected = false
             self.mediaItems = []
+            self.mediaItemsByObjectID = [:]
+            self.itemSubscriptions = [:]
+            self.refreshTimer?.invalidate()
+            self.refreshTimer = nil
+            self.isScanning = false
         }
     }
 
@@ -443,16 +588,31 @@ extension DeviceManager: ICCameraDeviceDelegate {
         DispatchQueue.main.async {
             let removedIDs = Set(items.map(ObjectIdentifier.init))
             self.mediaItems.removeAll { removedIDs.contains(ObjectIdentifier($0.cameraItem)) }
+            for id in removedIDs { self.itemSubscriptions.removeValue(forKey: id) }
         }
     }
 
     func deviceDidBecomeReady(withCompleteContentCatalog device: ICCameraDevice) {
-        if let all = device.mediaFiles {
-            addMediaItems(all)
-        }
-        DispatchQueue.main.async {
+        let all = device.mediaFiles ?? []
+        addMediaItems(all) {
             self.isCatalogReady = true
-            self.statusMessage = "\(self.mediaItems.count) elementi trovati su \(self.deviceName)."
+            if self.mediaItems.isEmpty {
+                // A volte "mediaFiles" non è ancora popolato internamente
+                // nell'istante esatto in cui questo delegate scatta, pur
+                // essendo il segnale ufficiale di "catalogo pronto". Un
+                // secondo ripescaggio dopo una breve attesa recupera gli
+                // elementi in questi casi, invece di restare bloccati su
+                // "0 elementi trovati".
+                self.statusMessage = "Catalogo pronto, verifico il contenuto…"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    let retryItems = device.mediaFiles ?? []
+                    self.addMediaItems(retryItems) {
+                        self.statusMessage = "\(self.mediaItems.count) elementi trovati su \(self.deviceName)."
+                    }
+                }
+            } else {
+                self.statusMessage = "\(self.mediaItems.count) elementi trovati su \(self.deviceName)."
+            }
         }
     }
 
@@ -491,6 +651,7 @@ extension DeviceManager: ICCameraDeviceDelegate {
     func cameraDeviceDidRemoveAccessRestriction(_ device: ICDevice) {
         DispatchQueue.main.async {
             self.statusMessage = "\(self.deviceName) sbloccato: lettura dei contenuti in corso…"
+            self.startCatalogPolling()
         }
     }
 
@@ -516,6 +677,7 @@ extension DeviceManager: ICCameraDeviceDownloadDelegate {
             if let error {
                 item.transferState = .failed(error.localizedDescription)
                 self.logger?.log(originalName: item.name, savedName: "-", status: "ERRORE", sizeBytes: nil, sha256: nil, detail: error.localizedDescription)
+                self.log("✗ \(item.name): \(error.localizedDescription)")
                 self.activeDownloads.removeValue(forKey: key)
                 self.copiedSoFar += 1
                 self.fillDownloadSlots()
@@ -546,11 +708,13 @@ extension DeviceManager: ICCameraDeviceDownloadDelegate {
                     case .success(let sha256):
                         item.transferState = .done
                         self.logger?.log(originalName: item.name, savedName: savedName, status: "OK", sizeBytes: expectedSize, sha256: sha256, detail: nil)
+                        self.log("✓ \(item.name) copiato e verificato")
                         self.itemsCompletedThisSession.append(item)
                         self.runConversionsIfNeeded(destFolder: destFolder, savedFileName: savedName)
                     case .failure(let reason):
                         item.transferState = .failed(reason)
                         self.logger?.log(originalName: item.name, savedName: savedName, status: "ERRORE_VERIFICA", sizeBytes: expectedSize, sha256: nil, detail: reason)
+                        self.log("✗ \(item.name): verifica fallita — \(reason)")
                     }
                     self.activeDownloads.removeValue(forKey: key)
                     self.copiedSoFar += 1
