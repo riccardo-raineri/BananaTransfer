@@ -11,6 +11,10 @@ struct ContentView: View {
     @State private var isLogVisible = false
     @AppStorage("preferLightTheme") private var preferLightTheme = false
 
+    private var currentSource: MediaSourceOption? {
+        manager.availableSources.first(where: { $0.id == manager.selectedSourceID })
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             
@@ -58,6 +62,14 @@ struct ContentView: View {
         } message: {
             Text(manager.transferSummary?.message ?? "")
         }
+        .alert("Verifica libreria completata", isPresented: Binding(
+            get: { manager.libraryScanSummary != nil },
+            set: { if !$0 { manager.libraryScanSummary = nil } }
+        )) {
+            Button("OK", role: .cancel) { manager.libraryScanSummary = nil }
+        } message: {
+            Text(manager.libraryScanSummary?.message ?? "")
+        }
     }
 
     // MARK: - Sotto-viste Ridisegnate
@@ -82,6 +94,35 @@ struct ContentView: View {
             }
 
             Spacer()
+
+            if !manager.availableSources.isEmpty {
+                Menu {
+                    ForEach(manager.availableSources) { source in
+                        Button {
+                            manager.selectSource(source.id)
+                        } label: {
+                            Label(source.name, systemImage: source.systemImage)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: currentSource?.systemImage ?? "questionmark.circle")
+                        Text(currentSource?.name ?? "Scegli sorgente")
+                            .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9))
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Scegli da quale dispositivo o volume importare i file")
+            }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { preferLightTheme.toggle() }
@@ -196,6 +237,28 @@ struct ContentView: View {
                             .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
                         }
                         .buttonStyle(.plain)
+
+                        Button {
+                            manager.scanExistingLibrary(window: NSApp.keyWindow)
+                        } label: {
+                            HStack {
+                                if manager.isScanningLibrary {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: "magnifyingglass")
+                                }
+                                Text("Verifica libreria esistente…")
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.windowBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(manager.isScanningLibrary)
+                        .help("Scansiona una cartella sul Mac per trovare file già trasferiti in passato e deselezionarli automaticamente")
 
                         Spacer()
 

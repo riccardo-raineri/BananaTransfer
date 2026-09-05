@@ -21,12 +21,24 @@ struct PhotoThumbnailView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(item.isSelected ? Color.accentColor : .clear, lineWidth: 3)
                     )
+                    .opacity(item.isAlreadyInLibrary ? 0.5 : 1)
                     .onAppear {
                         manager.loadThumbnailIfNeeded(for: item)
                     }
 
                 selectionBadge
                     .padding(6)
+
+                if item.isAlreadyInLibrary {
+                    Text("Già presente")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.orange, in: Capsule())
+                        .padding(6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
 
                 if item.kind == .video {
                     Image(systemName: "video.fill")

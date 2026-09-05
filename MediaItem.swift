@@ -2,10 +2,12 @@
 //  MediaItem.swift
 //  BananaTransfer
 //
-//  Wrapper attorno a un ICCameraFile: espone i dati che servono alla UI
-//  (nome, data, thumbnail, stato di selezione/copia) come proprietà
-//  osservabili, così SwiftUI aggiorna solo la cella interessata invece
-//  di ridisegnare l'intera griglia ad ogni cambiamento.
+//  Wrapper attorno a un file multimediale, che può provenire da due
+//  origini diverse: una fotocamera/iPhone via ImageCaptureCore (ICCameraFile)
+//  oppure un file già presente localmente su un volume USB/SD montato come
+//  disco normale. Espone dati e stato (nome, data, thumbnail, selezione,
+//  avanzamento) come proprietà osservabili, così SwiftUI aggiorna solo la
+//  cella interessata invece di ridisegnare l'intera griglia.
 //
 
 import Foundation
@@ -30,14 +32,20 @@ enum TransferState: Equatable {
     case skipped
 }
 
+/// Da dove viene davvero questo file: una fotocamera collegata via cavo
+/// (letta con ImageCaptureCore) oppure un file già presente su un volume
+/// USB/SD montato come disco (letto con FileManager, come un file locale
+/// qualunque).
+enum MediaOrigin {
+    case camera(ICCameraFile)
+    case localFile(URL)
+}
+
 final class MediaItem: ObservableObject, Identifiable {
 
     let id = UUID()
 
-    /// Riferimento all'oggetto reale di ImageCaptureCore. Manteniamo un
-    /// riferimento forte perché l'SDK invalida gli item se non sono
-    /// referenziati da nessuna parte.
-    let cameraItem: ICCameraFile
+    let origin: MediaOrigin
 
     let name: String
     let captureDate: Date?
@@ -47,15 +55,51 @@ final class MediaItem: ObservableObject, Identifiable {
     @Published var thumbnail: NSImage?
     @Published var isSelected: Bool = true
     @Published var transferState: TransferState = .idle
+    /// true se una scansione di una cartella esistente (vedi
+    /// LibraryScanner) ha trovato un file con nome e dimensione uguali:
+    /// probabile segno che questo elemento è già stato trasferito in
+    /// passato, anche in un'altra sessione dell'app.
+    @Published var isAlreadyInLibrary: Bool = false
 
+    /// Chiave stabile e univoca per questo elemento, usata al posto di
+    /// ObjectIdentifier (che funziona solo per riferimenti a classi come
+    /// ICCameraFile, non per gli URL dei file locali) nei dizionari interni
+    /// del DeviceManager: così lo stesso codice di coda/download funziona
+    /// per entrambe le origini.
+    var sourceKey: AnyHashable {
+        switch origin {
+        case .camera(let file):
+            return AnyHashable(ObjectIdentifier(file))
+        case .localFile(let url):
+            return AnyHashable(url.path)
+        }
+    }
+
+    /// Inizializzatore per un file letto da una fotocamera/iPhone via
+    /// ImageCaptureCore.
     init(cameraItem: ICCameraFile) {
-        self.cameraItem = cameraItem
+        self.origin = .camera(cameraItem)
         self.name = cameraItem.name ?? "Senza nome"
         self.captureDate = cameraItem.creationDate
         self.fileSizeBytes = cameraItem.fileSize
         self.kind = MediaItem.kind(forUTI: cameraItem.uti, name: cameraItem.name)
-        // La thumbnail viene popolata in modo asincrono dal delegate
-        // cameraDevice(_:didReceiveThumbnail:for:error:) in DeviceManager.
+    }
+
+    /// Inizializzatore per un file già presente su un volume USB/SD montato
+    /// come disco normale: qui non c'è nessun oggetto ImageCaptureCore,
+    /// leggiamo tutto con FileManager/URL come per un file locale qualsiasi.
+    init(localFileURL: URL) {
+        self.origin = .localFile(localFileURL)
+        self.name = localFileURL.lastPathComponent
+        let values = try? localFileURL.resourceValues(forKeys: [
+            .fileSizeKey, .creationDateKey, .contentModificationDateKey
+        ])
+        self.fileSizeBytes = Int64(values?.fileSize ?? 0)
+        // La data di creazione del file è la stima migliore disponibile
+        // per la "data di scatto" su un volume esterno; se manca, usiamo
+        // la data di modifica come ripiego.
+        self.captureDate = values?.creationDate ?? values?.contentModificationDate
+        self.kind = MediaItem.kind(forUTI: nil, name: localFileURL.lastPathComponent)
     }
 
     private static func kind(forUTI uti: String?, name: String?) -> MediaKind {
